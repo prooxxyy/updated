@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robotics Summer ICT Camp Attendance</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <!-- Include standard qrcode library for real scannable output generation -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <style>
+        body { background-color: #f8f9fa; color: #212529; }
+        .attendance-container { background: white; padding: 2rem; border-radius: 0.5rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); margin: 2rem auto; max-width: 1200px; }
+        header { text-align: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid #dee2e6; }
+        h1 { color: #495057; margin: 0; font-size: 2rem; font-weight: 600; }
+        .controls { text-align: right; margin-bottom: 1.5rem; }
+        .table-responsive { margin-bottom: 2rem; }
+        table { margin-bottom: 0; }
+        .num-col { width: 50px; text-align: center; font-weight: bold; }
+        .footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #dee2e6; display: flex; align-items: center; }
+        .teacher-input { border: none; border-bottom: 1px solid #ced4da; min-width: 250px; margin-left: 0.5rem; outline: none; padding: 0.25rem 0.5rem; background: transparent; }
+        .teacher-input:focus { border-bottom: 1px solid #007bff; }
+        td[contenteditable="true"] { background: #f8f9fa; }
+        td[contenteditable="true"]:focus { outline: none; background: white; box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25); }
+        td[contenteditable="false"] { cursor: not-allowed; color: #6c757d; }
+        @media print { body { background: white; color: black; } .attendance-container { box-shadow: none; } .controls { display: none; } }
+        /* QR modal styling */
+        #qr-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:2000; }
+        #qr-modal .modal-inner { background:white; padding:1rem; border-radius:8px; max-width:420px; margin:auto; text-align:center; }
+
+        /* QR TREE EXPERIENCE STYLES */
+        #qrTreeExperience {
+            display: none;
+            position: relative;
+            width: 240px;
+            height: 240px;
+            margin: 0 auto 12px;
+            border-radius: 18px;
+            overflow: hidden;
+            background: #0b2117;
+            perspective: 800px;
+        }
+        #qrTreeExperience.active {
+            display: block;
+        }
+        .qr-tree-world {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 190px;
+            height: 190px;
+            margin-left: -95px;
+            margin-top: -95px;
+            transform-style: preserve-3d;
+            transform: rotateX(58deg) rotateZ(-35deg);
+            transition: transform 1.1s ease;
+        }
+        .qr-tree-world.overhead {
+            transform: rotateX(0deg) rotateZ(0deg) scale(1.04);
+        }
+        .qr-tree-ground {
+            position: absolute;
+            inset: 0;
+            border: 3px solid #315c36;
+            border-radius: 12px;
+            background: linear-gradient(135deg,#397b3c,#183d24);
+            box-shadow: 9px 9px 0 #102719;
+            transition: background 1s ease, box-shadow 1s ease;
+        }
+        .qr-tree-world.qr-mode .qr-tree-ground {
+            background-color: #214f2b;
+            box-shadow: 9px 9px 0 #102719, 0 0 28px rgba(80,255,120,.45);
+        }
+        .qr-tree {
+            position: absolute;
+            width: 130px;
+            height: 175px;
+            left: 30px;
+            top: 7px;
+            transform: translateZ(35px);
+            transition: opacity .65s ease, transform .9s ease;
+        }
+        .qr-tree-world.qr-mode .qr-tree {
+            opacity: 0;
+            transform: translateZ(90px) scale(.55);
+        }
+        .qr-tree-trunk {
+            position: absolute;
+            width: 27px;
+            height: 95px;
+            left: 52px;
+            bottom: 17px;
+            border-radius: 45% 45% 20% 20%;
+            background: linear-gradient(90deg,#4c2919,#a66a36,#3d2417);
+            transform: rotate(-5deg);
+        }
+        .qr-tree-branch {
+            position: absolute;
+            width: 16px;
+            height: 58px;
+            left: 33px;
+            bottom: 82px;
+            border-radius: 20px;
+            background: #70452a;
+            transform: rotate(-45deg);
+        }
+        .qr-tree-branch.right {
+            left: 76px;
+            transform: rotate(42deg);
+        }
+        .qr-tree-leaves {
+            position: absolute;
+            width: 112px;
+            height: 112px;
+            left: 9px;
+            top: 9px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 25%,#b5ff72 0 8%,transparent 9%), radial-gradient(circle at 70% 35%,#8ce75d 0 12%,transparent 13%), radial-gradient(circle at 35% 70%,#4bb84c 0 14%,transparent 15%), radial-gradient(circle at 70% 75%,#2e843d 0 15%,transparent 16%), #317c3c;
+            box-shadow: -19px 19px 0 -4px #2b7138, 19px 16px 0 -6px #429a43, 0 0 20px rgba(130,255,100,.35);
+        }
+        .qr-tree-pattern {
+            position: absolute;
+            inset: 13px;
+            display: grid;
+            grid-template-columns: repeat(21, 1fr);
+            grid-template-rows: repeat(21, 1fr);
+            gap: 1px;
+            opacity: 0;
+            transform: scale(.7);
+            transition: opacity .85s ease, transform .85s ease;
+            pointer-events: none;
+        }
+        .qr-tree-world.qr-mode .qr-tree-pattern {
+            opacity: 1;
+            transform: scale(1);
+        }
+        .qr-tree-cell {
+            border-radius: 1px;
+            background: transparent;
+        }
+        .qr-tree-cell.active {
+            background: #a4ff76;
+            box-shadow: 0 0 3px rgba(164,255,118,.35);
+        }
+        #qrGenerationStatus {
+            display: none;
+            margin: 0 0 10px;
+            font-size: 12px;
+            color: #2d7a42;
+            font-weight: bold;
+        }
+        #qrGenerationStatus.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container attendance-container">
+    <header>
+        <img src="https://icon2.cleanpng.com/lnd/20250227/ol/78370c7ebb42c577144019bd42a156.webp" alt="DepEd Logo" class="img-fluid mb-3" style="max-width: 150px; background: white;">
+        <h1>Schools Division Office of Olongapo City</h1>
+        <div class="mb-2">Summer ICT</div>
+    </header>
+
+    <div class="mb-3">
+        <label for="school-name" class="form-label">School Name:</label>
+        <input type="text" id="school-name" class="form-control" placeholder="Enter school name">
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-outline-secondary me-2" onclick="unlockCells()">🔓 Unlock for Editing</button>
+        <button class="btn btn-outline-info me-2" onclick="startQRInput()">📥 Input (Scan QR)</button>
+        <button class="btn btn-outline-primary me-2" onclick="downloadCSV()">📄 Download CSV</button>
+        <button class="btn btn-outline-success" onclick="downloadExcel()">📊 Download Excel</button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-bordered">
+            <thead class="table-light">
+                <tr>
+                   <th class="num-col">PC Number</th>
+                    <th>Full Name</th>
+                    <th>Grade</th>
+                    <th>School</th>
+                    <th>Pre Test</th>
+                    <th>Post Test</th>
+                    <th>Feedback</th>
+                </tr>
+            </thead>
+            <tbody id="attendance-body">
+                <!-- Rows generated by JS -->
+            </tbody>
+        </table>
+    </div>
+
+    <div class="footer">
+        <label class="form-label mb-0 me-2">Name of Teacher:</label>
+        <span class="teacher-input" id="teacher-name" contenteditable="true" onblur="saveTeacher()"></span>
+    </div>
+</div>
+
+<!-- QR Scanner Modal -->
+<div id="qr-modal">
+    <div class="modal-inner">
+        <h5>Scan QR Code</h5>
+        <div id="qr-reader" style="width:360px;margin:0 auto;"></div>
+        <div class="mt-2">
+            <button class="btn btn-sm btn-secondary me-2" onclick="stopQRInput()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Preview modal for parsed QR data -->
+<div id="qr-preview" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;z-index:2100;">
+    <div style="background:white;padding:1rem;border-radius:8px;max-width:420px;margin:auto;">
+        <h5>Preview scanned data</h5>
+        <div id="qr-preview-content" style="text-align:left;margin-top:0.5rem;font-size:0.95rem;"></div>
+        <div class="mt-2 text-end">
+            <button class="btn btn-sm btn-secondary me-2" onclick="closePreview()">Cancel</button>
+            <button class="btn btn-sm btn-primary" onclick="insertPreview()">Insert</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const tbody = document.getElementById('attendance-body');
+    const PASS = "1234";
+    let html5Scanner = null;
+
+    // Storage functions
+    function saveAttendance() {
+        const data = [];
+        const rows = tbody.querySelectorAll('tr');
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td:not(.num-col)');
+            const name = cells[0].innerText.trim();
+            const grade = cells[1].innerText.trim();
+            const school = cells[2].innerText.trim();
+            const preTest = cells[3].innerText.trim();
+            const postTest = cells[4].innerText.trim();
+            const feedback = cells[5].innerText.trim();
+            const pcnumber = row.querySelector(".num-col").innerText.trim();
+            data.push({pcnumber, name, grade, school, preTest, postTest, feedback});
+        });
+        localStorage.setItem('attendanceData', JSON.stringify(data));
+    }
+
+    function loadAttendance() {
+        const data = JSON.parse(localStorage.getItem('attendanceData') || '[]');
+        const rows = tbody.querySelectorAll('tr');
+        rows.forEach((row, index) => {
+            if (data[index]) {
+                const cells = row.querySelectorAll('td:not(.num-col)');
+                cells[0].innerText = data[index].name || '';
+                cells[1].innerText = data[index].grade || '';
+                cells[2].innerText = data[index].school || '';
+                cells[3].innerText = data[index].preTest || '';
+                cells[4].innerText = data[index].postTest || '';
+                cells[5].innerText = data[index].feedback || '';
+                cells.forEach(cell => {
+                    if (cell.innerText.trim() !== "") {
+                        cell.contentEditable = "false";
+                    }
+                });
+            }
+        });
+    }
+
+    function saveTeacher() {
+        const teacher = document.getElementById('teacher-name').innerText.trim();
+        localStorage.setItem('teacherName', teacher);
+    }
+
+    function loadTeacher() {
+        const teacher = localStorage.getItem('teacherName') || '';
+        document.getElementById('teacher-name').innerText = teacher;
+    }
+
+    function downloadCSV() {
+        Swal.fire({
+            title: 'Confirm Download',
+            text: 'Download attendance data as CSV? Note: Data will be cleared after download.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Download',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const csv = generateCSV();
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const schoolName = document.getElementById('school-name').value.trim() || 'attendance';
+                a.download = schoolName + '.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+                localStorage.removeItem('attendanceData');
+                localStorage.removeItem('teacherName');
+                Swal.fire('Data Cleared', 'Attendance data has been cleared from storage.', 'info');
+                location.reload();
+            }
+        });
+    }
+
+    function generateCSV() {
+        let csv = 'Name,Grade,School,Pre Test,Post Test,Feedback\n';
+        const rows = tbody.querySelectorAll('tr');
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td:not(.num-col)');
+            const name = cells[0].innerText.trim();
+            const grade = cells[1].innerText.trim();
+            const school = cells[2].innerText.trim();
+            const preTest = cells[3].innerText.trim();
+            const postTest = cells[4].innerText.trim();
+            const feedback = cells[5].innerText.trim();
+            csv += `"${name}","${grade}","${school}","${preTest}","${postTest}","${feedback}"\n`;
+        });
+        const teacher = document.getElementById('teacher-name').innerText.trim();
+        csv += `\nTeacher: ${teacher}\n`;
+        return csv;
+    }
+
+    function downloadExcel() {
+        const data = [];
+        data.push(['Name', 'Grade', 'School', 'Pre Test', 'Post Test', 'Feedback']);
+        const rows = tbody.querySelectorAll('tr');
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td:not(.num-col)');
+            data.push([cells[0].innerText.trim(), cells[1].innerText.trim(), cells[2].innerText.trim(), cells[3].innerText.trim(), cells[4].innerText.trim(), cells[5].innerText.trim()]);
+        });
+        data.push([]);
+        data.push(['Teacher', document.getElementById('teacher-name').innerText.trim()]);
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
+        const schoolName = document.getElementById('school-name').value.trim() || 'attendance';
+        XLSX.writeFile(wb, schoolName + '.xlsx');
+        localStorage.removeItem('attendanceData');
+        localStorage.removeItem('teacherName');
+        Swal.fire('Data Cleared', 'Attendance data has been cleared from storage.', 'info');
+        location.reload();
+    }
+
+    // Generate 40 rows
+    for (let i = 1; i <= 40; i++) {
+        let row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="num-col">${i}</td>
+            <td contenteditable="true" onblur="lockCell(this)"></td>
+            <td contenteditable="true" onblur="lockCell(this)"></td>
+            <td contenteditable="true" onblur="lockCell(this)"></td>
+            <td contenteditable="true" onblur="lockCell(this)"></td>
+            <td contenteditable="true" onblur="lockCell(this)"></td>
+            <td contenteditable="true" onblur="lockCell(this)"></td>
+        `;
+        tbody.appendChild(row);
+    }
+
+    loadAttendance();
+    loadTeacher();
+
+    function lockCell(cell) {
+        const row = cell.parentElement;
+        const cells = row.querySelectorAll('td:not(.num-col)');
+        if (cell.innerText.trim() !== "") {
+            cell.contentEditable = "false";
+        }
+        saveAttendance();
+    }
+
+    function unlockCells() {
+        let pw = prompt("Enter password to unlock cells:");
+        if (pw === PASS) {
+            const cells = document.querySelectorAll('td[contenteditable="false"], .teacher-input');
+            cells.forEach(cell => {
+                cell.contentEditable = "true";
+            });
+            alert("Editing enabled. Cells will re-lock when you finish typing.");
+        } else {
+            alert("Incorrect password. Access denied.");
+        }
+    }
+
+    // QR scanner controls
+    async function startQRInput() {
+        document.getElementById("qr-modal").style.display = "flex";
+        try {
+            if (html5Scanner) {
+                return;
+            }
+            html5Scanner = new Html5Qrcode("qr-reader");
+            const cameras = await Html5Qrcode.getCameras();
+            if (!cameras || cameras.length === 0) {
+                throw new Error("No camera found.");
+            }
+            let cameraId = cameras[0].id;
+            const rearCamera = cameras.find(cam =>
+                cam.label.toLowerCase().includes("back") ||
+                cam.label.toLowerCase().includes("rear")
+            );
+            if (rearCamera) {
+                cameraId = rearCamera.id;
+            }
+            await html5Scanner.start(
+                cameraId,
+                {
+                    fps: 10,
+                    qrbox: { width: 280, height: 280 }
+                },
+                qrCodeSuccessCallback
+            );
+        } catch (err) {
+            console.error(err);
+            Swal.fire({
+                icon: "error",
+                title: "Camera Error",
+                text: err.message
+            });
+            stopQRInput();
+        }
+    }
+
+    async function stopQRInput() {
+        document.getElementById("qr-modal").style.display = "none";
+        try {
+            if (html5Scanner) {
+                await html5Scanner.stop();
+                await html5Scanner.clear();
+                html5Scanner = null;
+                document.getElementById("qr-reader").innerHTML = "";
+            }
+        } catch (err) {
+            console.error(err);
+            html5Scanner = null;
+        }
+    }
+
+    async function qrCodeSuccessCallback(decodedText) {
+        await stopQRInput();
+        processQRData(decodedText);
+    }
+
+    function processQRData(text) {
+        let obj = {};
+        try {
+            obj = JSON.parse(text);
+        } catch {
+            Swal.fire("Invalid QR", "QR content is not valid JSON.", "warning");
+            return;
+        }
+
+        const parsed = {
+            pcnumber: obj.pcnumber || "",
+            name: obj.fullname || obj.name || "",
+            grade: obj.grade || "",
+            school: obj.school || "",
+            preTest: obj.pretest || "",
+            postTest: obj.posttest || "",
+            feedback: obj.feedback || ""
+        };
+
+        if (!parsed.name) {
+            Swal.fire("Invalid QR", "Name not found in QR.", "warning");
+            return;
+        }
+
+        showPreview(parsed);
+    }
+
+    let lastParsedQR = null;
+    function showPreview(data) {
+        lastParsedQR = data;
+        document.getElementById("qr-preview-content").innerHTML = `
+            <div><b>Name:</b> ${escapeHtml(data.name)}</div>
+            <div><b>Grade:</b> ${escapeHtml(data.grade)}</div>
+            <div><b>School:</b> ${escapeHtml(data.school)}</div>
+            <div><b>Pre-Test:</b> ${escapeHtml(data.preTest)}</div>
+            <div><b>Post-Test:</b> ${escapeHtml(data.postTest)}</div>
+            <div><b>Feedback:</b> ${escapeHtml(data.feedback)}</div>
+        `;
+        document.getElementById("qr-preview").style.display = "flex";
+    }
+
+    function closePreview() {
+        document.getElementById('qr-preview').style.display = 'none';
+        lastParsedQR = null;
+    }
+
+    function insertPreview() {
+        if (!lastParsedQR) return closePreview();
+        insertParsed(lastParsedQR);
+        closePreview();
+    }
+
+    function escapeHtml(s) {
+        return String(s || '').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+    }
+
+    function insertParsed(parsed) {
+        const pc = parseInt(parsed.pcnumber);
+        if (isNaN(pc) || pc < 1 || pc > 40) {
+            Swal.fire("Invalid PC Number", "PC Number must be between 1 and 40.", "warning");
+            return;
+        }
+
+        const rows = tbody.querySelectorAll("tr");
+        const row = rows[pc - 1];
+        const cells = row.querySelectorAll("td:not(.num-col)");
+
+        row.querySelector(".num-col").innerText = parsed.pcnumber;
+        if (parsed.name) cells[0].innerText = parsed.name;
+        if (parsed.grade) cells[1].innerText = parsed.grade;
+        if (parsed.school) cells[2].innerText = parsed.school;
+        if (parsed.preTest) cells[3].innerText = parsed.preTest;
+        if (parsed.postTest) cells[4].innerText = parsed.postTest;
+        if (parsed.feedback) cells[5].innerText = parsed.feedback;
+
+        saveAttendance();
+        Swal.fire("Success", `PC ${parsed.pcnumber} updated successfully.`, "success");
+    }
+</script>
+
+</body>
+</html>
